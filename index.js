@@ -27,6 +27,42 @@ async function run() {
       .db("BloodBridgeDB")
       .collection("userCollection");
 
+    // TOKEN AUTH API
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    // MIDDLEWARE
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "unauthorized access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // after token, then verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden acesss" });
+      }
+      next();
+    };
+
     // ----------------------- USER RELATED APIS -----------------------------
     // ++USER POST API++
     app.post("/users", async (req, res) => {
@@ -36,85 +72,141 @@ async function run() {
     });
 
     // +USER PATCH BLOCK API++
-    app.patch("/users/block/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      const updatedUser = {
-        $set: {
-          status: "blocked",
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedUser);
-      res.send(result);
-    });
+    app.patch(
+      "/users/block/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedUser = {
+          $set: {
+            status: "blocked",
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedUser);
+        res.send(result);
+      }
+    );
 
-    // +USER PATCH UNBCLOCK API++
-    app.patch("/users/unblock/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      const updatedUser = {
-        $set: {
-          status: "active",
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedUser);
-      res.send(result);
-    });
+    // +USER PATCH UNBLOCK API++
+    app.patch(
+      "/users/unblock/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedUser = {
+          $set: {
+            status: "active",
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedUser);
+        res.send(result);
+      }
+    );
 
     // +USER PATCH MAKE VOLUNTEER API++
-    app.patch("/users/volunteer/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      const updatedUser = {
-        $set: {
-          role: "volunteer",
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedUser);
-      res.send(result);
-    });
+    app.patch(
+      "/users/volunteer/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedUser = {
+          $set: {
+            role: "volunteer",
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedUser);
+        res.send(result);
+      }
+    );
 
     // +USER PATCH MAKE DONOR API++
-    app.patch("/users/donor/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      const updatedUser = {
-        $set: {
-          role: "donor",
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedUser);
-      res.send(result);
-    });
+    app.patch(
+      "/users/donor/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedUser = {
+          $set: {
+            role: "donor",
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedUser);
+        res.send(result);
+      }
+    );
 
     // +USER PATCH ADMIN API++
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = {
-        _id: new ObjectId(id),
-      };
-      const updatedUser = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(query, updatedUser);
-      res.send(result);
-    });
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedUser = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(query, updatedUser);
+        res.send(result);
+      }
+    );
 
     // ++USER GET API++
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+
+    // ++USER SINGLE GET API++
+    app.get("/users/data/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "unauthorized" });
+      }
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
+
+    // ++USER GET ADMIN API++
+    app.get(
+      "/users/admin/:email",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        if (email !== req.decoded.email) {
+          return res.status(403).send({ message: "unauthorized" });
+        }
+        const query = { email: email };
+        const user = await userCollection.findOne(query);
+        let isAdmin = false;
+        if (user) {
+          isAdmin = user?.role === "admin";
+        }
+        res.send({ isAdmin });
+      }
+    );
 
     await client.db("admin").command({ ping: 1 });
     console.log(
