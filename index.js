@@ -27,6 +27,10 @@ async function run() {
       .db("BloodBridgeDB")
       .collection("userCollection");
 
+    const requestCollection = client
+      .db("BloodBridgeDB")
+      .collection("requestCollection");
+
     // TOKEN AUTH API
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -227,6 +231,14 @@ async function run() {
         res.send({ isAdmin });
       }
     );
+
+    // ----------------------- DONATION RELATED APIS -----------------------------
+    // ++REQUEST DONATION POST API++
+    app.post("/donation-requests", async (req, res) => {
+      const requestInfo = req.body;
+      const result = await requestCollection.insertOne(requestInfo);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
