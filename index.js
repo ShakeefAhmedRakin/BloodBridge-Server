@@ -71,6 +71,26 @@ async function run() {
       res.send(result);
     });
 
+    // ++USER PROFILE PATCH API++
+    app.put("/users/update/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedUser = req.body;
+      const details = {
+        $set: {
+          name: updatedUser.name,
+          image: updatedUser.image,
+          blood_group: updatedUser.blood_group,
+          district: updatedUser.district,
+          upazilla: updatedUser.upazilla,
+        },
+      };
+
+      const result = await userCollection.updateOne(query, details, options);
+      res.send(result);
+    });
+
     // +USER PATCH BLOCK API++
     app.patch(
       "/users/block/:id",
