@@ -289,6 +289,16 @@ async function run() {
       }
     );
 
+    app.get(
+      "/stats/user/count",
+      verifyToken,
+      verifyVolunteerOrAdmin,
+      async (req, res) => {
+        const count = await userCollection.countDocuments();
+        res.send({ count });
+      }
+    );
+
     // ----------------------- DONATION RELATED APIS -----------------------------
     // ++REQUEST DONATION POST API++
     app.post("/donation-requests", async (req, res) => {
