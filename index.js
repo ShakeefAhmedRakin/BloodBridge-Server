@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -34,6 +35,10 @@ async function run() {
     const blogCollection = client
       .db("BloodBridgeDB")
       .collection("blogCollection");
+
+    const fundCollection = client
+      .db("BloodBridgeDB")
+      .collection("fundCollection");
 
     // TOKEN AUTH API
     app.post("/jwt", async (req, res) => {
@@ -649,6 +654,37 @@ async function run() {
     app.get("/blogs/published", async (req, res) => {
       let query = { status: "published" };
       const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // ----------------------- FUNDING RELATED APIS -----------------------------
+
+    // PAYMENT INTENT
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // ++FUNDING POST API ++
+    app.post("/fundings", verifyToken, async (req, res) => {
+      const paymentInfo = req.body;
+      const result = await fundCollection.insertOne(paymentInfo);
+      res.send(result);
+    });
+
+    // ++FUNDING GET ALL API++
+    app.get("/fundings", async (req, res) => {
+      const result = await fundCollection.find().toArray();
       res.send(result);
     });
 
