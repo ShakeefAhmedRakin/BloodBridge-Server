@@ -31,6 +31,10 @@ async function run() {
       .db("BloodBridgeDB")
       .collection("requestCollection");
 
+    const blogCollection = client
+      .db("BloodBridgeDB")
+      .collection("blogCollection");
+
     // TOKEN AUTH API
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -537,6 +541,86 @@ async function run() {
         res.send(result);
       }
     );
+
+    // ----------------------- BLOG RELATED APIS -----------------------------
+
+    // ++BLOG POST API++ (ONLY VOLUNTEER AND ADMIN)
+    app.post(
+      "/blogs",
+      verifyToken,
+      verifyVolunteerOrAdmin,
+      async (req, res) => {
+        const requestInfo = req.body;
+        const result = await blogCollection.insertOne(requestInfo);
+        res.send(result);
+      }
+    );
+
+    // ++BLOG GET API BASED ON FILTERS++ (ONLY VOLUNTEER AND ADMIN)
+    app.get("/blogs", verifyToken, verifyVolunteerOrAdmin, async (req, res) => {
+      let query = {};
+      if (req.query?.filter) {
+        query.status = req.query.filter;
+      }
+
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // ++BLOG PATCH API TO PUBLISH++ (ONLY ADMIN)
+    app.patch(
+      "/blogs/patch-publish/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedBlog = {
+          $set: {
+            status: "published",
+          },
+        };
+        const result = await blogCollection.updateOne(query, updatedBlog);
+        res.send(result);
+      }
+    );
+
+    // ++BLOG PATCH API TO DRAFT++ (ONLY ADMIN)
+    app.patch(
+      "/blogs/patch-draft/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = {
+          _id: new ObjectId(id),
+        };
+        const updatedBlog = {
+          $set: {
+            status: "draft",
+          },
+        };
+        const result = await blogCollection.updateOne(query, updatedBlog);
+        res.send(result);
+      }
+    );
+
+    // ++BLOG DELETE API++ (ONLY ADMIN)
+    app.delete("/blogs/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await blogCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // ++BLOG GET API ONLY PUBLISHED++
+    app.get("/blogs/published", async (req, res) => {
+      let query = { status: "published" };
+      const result = await blogCollection.find(query).toArray();
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
