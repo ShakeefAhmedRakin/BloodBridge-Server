@@ -289,6 +289,7 @@ async function run() {
       }
     );
 
+    // ++USER STAT COUNT API++ (ONLY ADMIN AND VOLUNTEER)
     app.get(
       "/stats/user/count",
       verifyToken,
@@ -298,6 +299,25 @@ async function run() {
         res.send({ count });
       }
     );
+
+    // ++USER DONOR INFO SEARCH++ (PUBLIC)
+    app.get("/donors", async (req, res) => {
+      let query = { role: "donor" };
+      if (req.query?.group) {
+        query.blood_group = req.query.group;
+      }
+
+      if (req.query?.district) {
+        query.district = req.query.district;
+      }
+
+      if (req.query?.upazilla) {
+        query.upazilla = req.query.upazilla;
+      }
+
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
 
     // ----------------------- DONATION RELATED APIS -----------------------------
     // ++REQUEST DONATION POST API++
