@@ -88,6 +88,18 @@ async function run() {
       next();
     };
 
+    const verifyVolunteerOrAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isVolunteerOrAdmin =
+        user && (user.role === "volunteer" || user.role === "admin");
+      if (!isVolunteerOrAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     // ----------------------- USER RELATED APIS -----------------------------
     // ++USER POST API++
     app.post("/users", async (req, res) => {
@@ -363,6 +375,29 @@ async function run() {
       }
     );
 
+    // ++REQUEST DONATION GET ALL FOR ADMIN AND VOLUNTEER ONLY++
+    app.get(
+      "/admin/donation-requests",
+      verifyToken,
+      verifyVolunteerOrAdmin,
+      async (req, res) => {
+        let query = {};
+        if (req.query?.filter) {
+          query.request_status = req.query.filter;
+        }
+
+        const page = parseInt(req.query.page);
+        const size = parseInt(req.query.size);
+
+        const result = await requestCollection
+          .find(query)
+          .skip(page * size)
+          .limit(size)
+          .toArray();
+        res.send(result);
+      }
+    );
+
     // ++REQUEST DONATION GET FIRST THREE LATEST DONATIONS BASED ON EMAIL++
     app.get(
       "/user/donation-requests/recent",
@@ -391,6 +426,24 @@ async function run() {
         if (req.query?.email) {
           query.requester_email = req.query.email;
         }
+
+        if (req.query?.filter) {
+          console.log(req.query.filter);
+          query.request_status = req.query.filter;
+        }
+
+        const count = await requestCollection.countDocuments(query);
+        res.send({ count });
+      }
+    );
+
+    // ++REQUEST DONATION GET ALL FOR ADMIN AND VOLUNTEER++ (COUNT)
+    app.get(
+      "/admin/donation-requests/count",
+      verifyToken,
+      verifyVolunteerOrAdmin,
+      async (req, res) => {
+        let query = {};
 
         if (req.query?.filter) {
           console.log(req.query.filter);
